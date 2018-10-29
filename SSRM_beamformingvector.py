@@ -148,21 +148,6 @@ def solving(N,Pt):
     #print(LA.norm(xOpt).T)
     xOpt =np.matrix(xOpt.reshape(N-2, N-2))
 
-    # print("P1:")
-    # print(P1)
-    # print("Q1:")
-    # print(Q1)
-    # print("P1_nga:")
-    # print(P1_nga)
-    # print("Q1_nga:")
-    # print(Q1_nga)
-    # print("P1_hat:")
-    # print(P1_hat)
-    # print("Q1_hat:")
-    # print(Q1_hat)
-    #print(is_pos_def(Aopt))
-    #print(evalues)
-
     if (isHermitian(xOpt)==True):
         eigenvalues, c_hat = eigs(xOpt,1,which='LM')
         w = math.sqrt(PowerT-Power1-Power2) * G * Ac * c_hat
