@@ -183,7 +183,7 @@ def solving(N,Pt):
         print(N," ",PowerT)
         print(result)
         print(LA.norm(result))
-        print(math.log2(LA.norm(result)))
+        print(math.log2(LA.norm(result))/2)
         print("------------------------------")
 
 for N in range(4, 9, 2):
