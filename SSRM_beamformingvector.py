@@ -1,16 +1,35 @@
 import numpy as np
 from numpy import linalg as LA
 
-import matlab as ml
+#import matlab as ml
 
 import scipy as sp
 from numpy.distutils.system_info import x11_info
 from scipy import linalg as sp_LA
 from scipy.sparse.linalg import eigs
 from scipy.linalg import eig
+from scipy.linalg import null_space
+from sympy import Matrix
 
 import math
 
+
+def proj(u,v):
+    return LA.norm((u.T * v) / (u.T * u))
+
+def gram_smith(X):
+    X1 = X[:, 0]
+    row , col = X.shape
+    col1 = 1
+    for i in range(1,col):
+        tmp = X[: ,i]
+        for j in range(col1):
+            tmp = tmp - proj(X1[:, j],X[:, i]) * X1[:, j]
+        X1 = np.c_[X1, np.matrix(tmp)]
+        col1 = col1 +1
+    for i in range(col):
+        X1[:, i] = normalize(X1[:, i])
+    return X1
 
 def isHermitian(a, tol=1e-8):
     return np.allclose(a, a.getH(), atol=tol)
@@ -33,10 +52,12 @@ def genComplexMatrix(num_row, num_col):
     return np.matrix(complex_norm)
 
 def powerConsume(Xs,P1_hat,P2_hat,Q1_hat,Q2_hat):
-    tmp = Xs.getH() * (np.kron(P1_hat.getT(),P2_hat)) * Xs
-    tmp1 = Xs.getH() * (np.kron(Q1_hat.getT(), Q2_hat)) * Xs
+    tmp =LA.norm(Xs.getH() * (np.kron(P1_hat.getT(),P2_hat)) * Xs)
+    tmp1 =LA.norm( Xs.getH() * (np.kron(Q1_hat.getT(), Q2_hat)) * Xs)
     #print(np.kron(P1_hat.getT(),P2_hat).shape)
     return (tmp/tmp1)
+
+
 
 def createG(N,V):
     G = np.random.rand(N, 0)
@@ -59,8 +80,8 @@ def normalize(vectorA):
     vectorA = np.matrix(vectorA/sumA)
     return vectorA
 
-
-
+def sqr_absolute_val(x):
+    return np.real(x) * np.real(x) + np.imag(x) * np.imag(x)
 
 def solving(N,Pt):
     path ='data/Testdata_Exp1_'+str(int(N))+'_'+str(int(Pt))+'.npz'
@@ -82,26 +103,34 @@ def solving(N,Pt):
     D1 = np.matrix(data['D1'])
     D2 = np.matrix(data['D2'])
     Z = np.matrix(data['Z'])
-    PowerT = np.int(data['Pt'])
+    PowerT = Pt * 1000
 
-    #Z = L[f1,f2]
-    #Z = L*np.column_stack((f1,f2))
 
     U,S,V =LA.svd(Z.getH())
-    #G is column orthogonal matrix corresponding to zero sigular of Z^H
+    #V = V.T
+    #G is column orthogonal matrix corresponding to zero singular of
     # => column[i] of G is row[i+2] of V
+
     G = np.random.rand(N, 0)
     for i in range(2, N):
         tmp = np.matrix(V[i, :])
         #print(tmp)
         G = np.c_[G, tmp.getT()]
+    #print(G.H * Z)
     #Power consume at two Sources
+
+    null =np. matrix(null_space(Z.H))
+    # print("Gram-Smith of Null")
+    null = gram_smith(null)
+    G = gram_smith(null)
+    #print(Z.H * G)
     Power1 = PowerT/4
     Power2 = PowerT/4
 
     #variance
     variance2_R = 1
     variance2_k = 1
+    variance2_E_1 = 1
 
     #(28a) , (28b)
     R1 = F1*f2*f2.getH()*F1.getH()  #(13)
@@ -113,7 +142,7 @@ def solving(N,Pt):
     Q2 = variance2_R * G.getH() * D2 * G
     #print(P1)
     #A0
-
+    #print(Z.H * G)
     A0 = G.getH() * (Power1*D1 + Power2*D2 + variance2_R*np.identity(N)) *G  #(12)
 
     try:
@@ -121,8 +150,9 @@ def solving(N,Pt):
     except np.linalg.LinAlgError:
         print("Input Matrix Is Not Invertible")
         pass
-
-
+    #print(g1)
+    # random = Z.getH() * G * A0
+    # print(random)
 
     #(29)
     P1_nga = Ac.getH() * P1 * Ac
@@ -177,17 +207,26 @@ def solving(N,Pt):
             Xl_nga = xl_nga*xl_nga.getH()
             xl_hat = Xl_nga.reshape((N-2)* (N-2), 1)
             cur_value = powerConsume(xl_hat,P1_hat,P2_hat,Q1_hat,Q2_hat)
-            if (LA.norm(cur_value) > LA.norm(result)):
-                result = cur_value
-                w = xl_nga
+            if (LA.norm(cur_value)> 0):
+                result = LA.norm(cur_value)
+                w = G * A0 * xl_nga
         print(N," ",PowerT)
+
+        result = result / (1 + (Power1 * sqr_absolute_val(g1) + Power2 * sqr_absolute_val(g2)) /variance2_E_1)
+        result = (0- math.log2(result) /2)
+        if (result > 0) : result = 0
         print(result)
-        print(LA.norm(result))
-        print(math.log2(LA.norm(result))/2)
         print("------------------------------")
 
 for N in range(4, 9, 2):
     for Pt in range(30, 41, 1):
         solving(N, Pt)
 
-#edit arpack.py
+
+
+# A = np.matrix([[-3,1],[6,-2],[6,-2]])
+# print(A*A.T)
+
+# X1 = np.matrix([[1,1,1], [-1,0,1], [1,1,2]])
+# X1 = gram_smith(X1)
+# print(X1)
